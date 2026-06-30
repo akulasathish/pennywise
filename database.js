@@ -1,7 +1,24 @@
 const fs = require('fs');
 const path = require('path');
+const { createClient } = require('@supabase/supabase-js');
 
 const DB_FILE = path.join(__dirname, 'db.json');
+
+// Initialize Supabase Client if env vars are present
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
+let supabase = null;
+
+if (supabaseUrl && supabaseKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+    console.log("========================================");
+    console.log("Supabase Client initialized successfully!");
+    console.log("========================================");
+  } catch (err) {
+    console.error("Failed to initialize Supabase client:", err);
+  }
+}
 
 const defaultData = {
   users: [
@@ -43,126 +60,192 @@ const defaultData = {
 
 class Database {
   constructor() {
-    this.init();
+    this.localData = null;
+    this.initLocal();
   }
 
-  init() {
+  initLocal() {
     if (!fs.existsSync(DB_FILE)) {
-      this.data = JSON.parse(JSON.stringify(defaultData));
-      this.save();
+      this.localData = JSON.parse(JSON.stringify(defaultData));
+      this.saveLocal();
     } else {
       try {
         const raw = fs.readFileSync(DB_FILE, 'utf8');
-        this.data = JSON.parse(raw);
-        // Ensure all default keys exist
+        this.localData = JSON.parse(raw);
         for (const key of Object.keys(defaultData)) {
-          if (!this.data[key]) {
-            this.data[key] = JSON.parse(JSON.stringify(defaultData[key]));
+          if (!this.localData[key]) {
+            this.localData[key] = JSON.parse(JSON.stringify(defaultData[key]));
           }
         }
       } catch (e) {
         console.error("Error reading database file, resetting to defaults:", e);
-        this.data = JSON.parse(JSON.stringify(defaultData));
-        this.save();
+        this.localData = JSON.parse(JSON.stringify(defaultData));
+        this.saveLocal();
       }
     }
   }
 
-  save() {
+  saveLocal() {
     try {
-      fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf8');
+      fs.writeFileSync(DB_FILE, JSON.stringify(this.localData, null, 2), 'utf8');
     } catch (e) {
       console.error("Error saving database file:", e);
     }
   }
 
-  // Generic Helpers
-  get(collection) {
-    return this.data[collection] || [];
+  // Get active Supabase instance status
+  isSupabaseEnabled() {
+    return supabase !== null;
   }
 
-  getById(collection, id) {
-    const list = this.get(collection);
+  // Generic Helpers (Async supported)
+  async get(collection) {
+    if (supabase) {
+      if (collection === 'paymentRequests') {
+        const { data, error } = await supabase.from('pennywise_payment_requests').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data || []).map(d => this.mapFromSupabase(collection, d));
+      }
+      if (collection === 'receivedSms') {
+        const { data, error } = await supabase.from('pennywise_sms_logs').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data || []).map(d => this.mapFromSupabase(collection, d));
+      }
+    }
+    return this.localData[collection] || [];
+  }
+
+  async getById(collection, id) {
+    if (supabase) {
+      if (collection === 'paymentRequests') {
+        const { data, error } = await supabase.from('pennywise_payment_requests').select('*').eq('id', id).maybeSingle();
+        if (error) throw error;
+        return data ? this.mapFromSupabase(collection, data) : null;
+      }
+      if (collection === 'users') {
+        // Fallback for user simulation
+        return this.localData.users.find(u => u.id === id);
+      }
+    }
+    const list = await this.get(collection);
     return list.find(item => item.id === id);
   }
 
-  insert(collection, item) {
-    if (!this.data[collection]) {
-      this.data[collection] = [];
+  async insert(collection, item) {
+    if (supabase) {
+      if (collection === 'paymentRequests') {
+        const mapped = this.mapToSupabase(collection, item);
+        const { data, error } = await supabase.from('pennywise_payment_requests').insert(mapped).select().single();
+        if (error) throw error;
+        return this.mapFromSupabase(collection, data);
+      }
+      if (collection === 'receivedSms') {
+        const mapped = this.mapToSupabase(collection, item);
+        const { data, error } = await supabase.from('pennywise_sms_logs').insert(mapped).select().single();
+        if (error) throw error;
+        return this.mapFromSupabase(collection, data);
+      }
     }
-    const newItem = { id: `${collection.slice(0, 3)}_${Math.random().toString(36).substring(2, 9)}`, ...item, createdAt: Date.now() };
-    this.data[collection].push(newItem);
-    this.save();
+
+    if (!this.localData[collection]) {
+      this.localData[collection] = [];
+    }
+    const newItem = { 
+      id: `${collection.slice(0, 3)}_${Math.random().toString(36).substring(2, 9)}`, 
+      ...item, 
+      createdAt: Date.now() 
+    };
+    this.localData[collection].push(newItem);
+    this.saveLocal();
     return newItem;
   }
 
-  update(collection, id, updates) {
-    const list = this.get(collection);
+  async update(collection, id, updates) {
+    if (supabase) {
+      if (collection === 'paymentRequests') {
+        const mapped = this.mapToSupabase(collection, updates);
+        const { data, error } = await supabase.from('pennywise_payment_requests').update(mapped).eq('id', id).select().single();
+        if (error) throw error;
+        return this.mapFromSupabase(collection, data);
+      }
+    }
+
+    const list = this.localData[collection] || [];
     const index = list.findIndex(item => item.id === id);
     if (index !== -1) {
       list[index] = { ...list[index], ...updates, updatedAt: Date.now() };
-      this.save();
+      this.saveLocal();
       return list[index];
     }
     return null;
   }
 
-  delete(collection, id) {
-    const list = this.get(collection);
-    const index = list.findIndex(item => item.id === id);
-    if (index !== -1) {
-      const removed = list.splice(index, 1)[0];
-      this.save();
-      return removed;
-    }
-    return null;
-  }
-
-  // Settings helpers
+  // Settings
   getSettings() {
-    return this.data.settings;
+    return this.localData.settings;
   }
 
   updateSettings(newSettings) {
-    this.data.settings = { ...this.data.settings, ...newSettings };
-    this.save();
-    return this.data.settings;
+    this.localData.settings = { ...this.localData.settings, ...newSettings };
+    this.saveLocal();
+    return this.localData.settings;
   }
 
-  // Clean expired payments
-  cleanExpiredPayments() {
-    const now = Date.now();
-    let updated = false;
-    this.data.paymentRequests.forEach(req => {
-      if (req.status === 'pending' && req.expiresAt < now) {
-        req.status = 'expired';
-        req.updatedAt = now;
-        updated = true;
+  // clean expired checkouts
+  async cleanExpiredPayments() {
+    const now = new Date().toISOString();
+    if (supabase) {
+      const { error } = await supabase
+        .from('pennywise_payment_requests')
+        .update({ status: 'expired', updated_at: now })
+        .eq('status', 'pending')
+        .lt('expires_at', now);
+      if (error) console.error("Error cleaning expired payments on Supabase:", error);
+    } else {
+      const nowMs = Date.now();
+      let updated = false;
+      this.localData.paymentRequests.forEach(req => {
+        if (req.status === 'pending' && req.expiresAt < nowMs) {
+          req.status = 'expired';
+          req.updatedAt = nowMs;
+          updated = true;
+        }
+      });
+      if (updated) {
+        this.saveLocal();
       }
-    });
-    if (updated) {
-      this.save();
     }
   }
 
-  // Core Penny-Wise allocation algorithm
-  allocatePennyWiseAmount(userId, userName, basePrice) {
-    this.cleanExpiredPayments();
+  // Unique amount allocation logic
+  async allocatePennyWiseAmount(userId, userName, basePrice) {
+    await this.cleanExpiredPayments();
     
-    const COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes cooldown
+    const COOLDOWN_MS = 30 * 60 * 1000;
     const now = Date.now();
+    const expiryMin = this.localData.settings.expiryMinutes || 10;
     
-    // Get all requests that are currently pending, or completed/expired within cooldown
-    const blockedRequests = this.data.paymentRequests.filter(req => {
-      if (req.status === 'pending') return true;
-      const lastActiveTime = req.updatedAt || req.expiresAt || req.createdAt;
-      return (now - lastActiveTime) < COOLDOWN_MS;
-    });
+    let blockedRequests = [];
     
-    // Find already allocated exact amounts among blocked requests
+    if (supabase) {
+      const cutoffTime = new Date(now - COOLDOWN_MS).toISOString();
+      const { data, error } = await supabase
+        .from('pennywise_payment_requests')
+        .select('*')
+        .or(`status.eq.pending,updated_at.gt.${cutoffTime},created_at.gt.${cutoffTime}`);
+      
+      if (error) throw error;
+      blockedRequests = data.map(d => this.mapFromSupabase('paymentRequests', d));
+    } else {
+      blockedRequests = this.localData.paymentRequests.filter(req => {
+        if (req.status === 'pending') return true;
+        const lastActiveTime = req.updatedAt || req.expiresAt || req.createdAt;
+        return (now - lastActiveTime) < COOLDOWN_MS;
+      });
+    }
+    
     const allocatedExactAmounts = new Set(blockedRequests.map(req => Number(req.amountExact).toFixed(2)));
     
-    // Search for a free fractional amount starting from basePrice + 0.00 up to basePrice + 0.99
     let targetAmount = basePrice;
     let increment = 0.01;
     let found = false;
@@ -178,23 +261,71 @@ class Database {
       }
     }
     
-    // If we somehow exceed 100 concurrent payments, reset to a random cents
     if (!found) {
       targetAmount = parseFloat((basePrice + Math.random()).toFixed(2));
     }
 
-    const expiryMin = this.data.settings.expiryMinutes || 10;
-    
     const newRequest = {
       userId,
       userName,
       amountBase: basePrice,
       amountExact: targetAmount,
       status: "pending",
-      expiresAt: Date.now() + expiryMin * 60 * 1000
+      expiresAt: now + expiryMin * 60 * 1000
     };
     
-    return this.insert('paymentRequests', newRequest);
+    return await this.insert('paymentRequests', newRequest);
+  }
+
+  // Mapping converters between Local format and Supabase snake_case format
+  mapToSupabase(collection, item) {
+    if (collection === 'paymentRequests') {
+      const result = {};
+      if (item.userId !== undefined) result.user_id = item.userId;
+      if (item.userName !== undefined) result.user_name = item.userName;
+      if (item.amountBase !== undefined) result.amount_base = item.amountBase;
+      if (item.amountExact !== undefined) result.amount_exact = item.amountExact;
+      if (item.status !== undefined) result.status = item.status;
+      if (item.expiresAt !== undefined) result.expires_at = new Date(item.expiresAt).toISOString();
+      if (item.createdAt !== undefined) result.created_at = new Date(item.createdAt).toISOString();
+      return result;
+    }
+    if (collection === 'receivedSms') {
+      return {
+        sender: item.sender,
+        body: item.body,
+        parsed_amount: item.parsedAmount,
+        status: item.status
+      };
+    }
+    return item;
+  }
+
+  mapFromSupabase(collection, row) {
+    if (collection === 'paymentRequests') {
+      return {
+        id: row.id,
+        userId: row.user_id,
+        userName: row.user_name,
+        amountBase: parseFloat(row.amount_base),
+        amountExact: parseFloat(row.amount_exact),
+        status: row.status,
+        expiresAt: new Date(row.expires_at).getTime(),
+        createdAt: new Date(row.created_at).getTime(),
+        updatedAt: new Date(row.updated_at).getTime()
+      };
+    }
+    if (collection === 'receivedSms') {
+      return {
+        id: row.id,
+        sender: row.sender,
+        body: row.body,
+        parsedAmount: row.parsed_amount ? parseFloat(row.parsed_amount) : null,
+        status: row.status,
+        createdAt: new Date(row.created_at).getTime()
+      };
+    }
+    return row;
   }
 }
 

@@ -74,66 +74,93 @@ app.get('/api/qr', async (req, res) => {
 });
 
 // 1. Users
-app.get('/api/users', (req, res) => {
-  res.json(db.get('users'));
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await db.get('users');
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/api/users', (req, res) => {
+app.post('/api/users', async (req, res) => {
   const { name, email } = req.body;
   if (!name || !email) {
     return res.status(400).json({ error: "Name and email are required" });
   }
-  const newUser = db.insert('users', {
-    name,
-    email,
-    status: 'inactive',
-    expiresAt: null
-  });
-  res.status(201).json(newUser);
+  try {
+    const newUser = await db.insert('users', {
+      name,
+      email,
+      status: 'inactive',
+      expiresAt: null
+    });
+    res.status(201).json(newUser);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 2. Payment Requests
-app.get('/api/payment-requests', (req, res) => {
-  db.cleanExpiredPayments();
-  res.json(db.get('paymentRequests'));
+app.get('/api/payment-requests', async (req, res) => {
+  try {
+    await db.cleanExpiredPayments();
+    const requests = await db.get('paymentRequests');
+    res.json(requests);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/api/payment-requests', (req, res) => {
+app.post('/api/payment-requests', async (req, res) => {
   const { userId } = req.body;
   if (!userId) {
     return res.status(400).json({ error: "User ID is required" });
   }
 
-  const user = db.getById('users', userId);
-  if (!user) {
-    return res.status(404).json({ error: "User not found" });
+  try {
+    const user = await db.getById('users', userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const settings = db.getSettings();
+    const basePrice = settings.basePrice || 100.00;
+
+    // Allocate exact penny-wise amount
+    const paymentRequest = await db.allocatePennyWiseAmount(user.id, user.name, basePrice);
+    res.status(201).json(paymentRequest);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-
-  const settings = db.getSettings();
-  const basePrice = settings.basePrice || 100.00;
-
-  // Allocate exact penny-wise amount
-  const paymentRequest = db.allocatePennyWiseAmount(user.id, user.name, basePrice);
-  res.status(201).json(paymentRequest);
 });
 
 // 3. Check individual payment status (polling)
-app.get('/api/payment-status/:id', (req, res) => {
-  db.cleanExpiredPayments();
-  const payment = db.getById('paymentRequests', req.params.id);
-  if (!payment) {
-    return res.status(404).json({ error: "Payment request not found" });
+app.get('/api/payment-status/:id', async (req, res) => {
+  try {
+    await db.cleanExpiredPayments();
+    const payment = await db.getById('paymentRequests', req.params.id);
+    if (!payment) {
+      return res.status(404).json({ error: "Payment request not found" });
+    }
+    res.json(payment);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  res.json(payment);
 });
 
 // 4. SMS Management
-app.get('/api/sms', (req, res) => {
-  res.json(db.get('receivedSms'));
+app.get('/api/sms', async (req, res) => {
+  try {
+    const sms = await db.get('receivedSms');
+    res.json(sms);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 5. INCOMING SMS WEBHOOK (MacroDroid/Tasker or Simulator calls this)
-app.post('/api/sms', (req, res) => {
+app.post('/api/sms', async (req, res) => {
   const { sender, body } = req.body;
   
   if (!body) {
@@ -160,101 +187,106 @@ app.post('/api/sms', (req, res) => {
     );
   }
 
-  // If failed basic checks, mark as ignored
-  if (!senderAllowed || !containsKeyword) {
-    const ignoredSms = db.insert('receivedSms', {
-      sender: sender || "Unknown",
-      body,
-      parsedAmount: null,
-      matchedPaymentId: null,
-      status: "ignored"
-    });
-    return res.json({ 
-      success: true, 
-      status: "ignored", 
-      reason: !senderAllowed ? "Sender not in allowed list" : "Keywords not matched",
-      sms: ignoredSms 
-    });
-  }
-
-  // Parse amount from SMS
-  const amount = parseSmsForAmount(body);
-
-  if (amount === null) {
-    const unmatchedSms = db.insert('receivedSms', {
-      sender: sender || "Unknown",
-      body,
-      parsedAmount: null,
-      matchedPaymentId: null,
-      status: "unmatched"
-    });
-    return res.json({ 
-      success: true, 
-      status: "unmatched", 
-      reason: "Could not parse amount from SMS content",
-      sms: unmatchedSms 
-    });
-  }
-
-  // Search for matching payment (either pending or recently expired within 30 minutes)
-  db.cleanExpiredPayments();
-  const candidateRequests = db.get('paymentRequests').filter(req => {
-    if (req.status === 'pending') return true;
-    if (req.status === 'expired') {
-      const timeSinceExpiry = Date.now() - req.expiresAt;
-      return timeSinceExpiry < (30 * 60 * 1000); // 30 minutes cooldown
+  try {
+    // If failed basic checks, mark as ignored
+    if (!senderAllowed || !containsKeyword) {
+      const ignoredSms = await db.insert('receivedSms', {
+        sender: sender || "Unknown",
+        body,
+        parsedAmount: null,
+        matchedPaymentId: null,
+        status: "ignored"
+      });
+      return res.json({ 
+        success: true, 
+        status: "ignored", 
+        reason: !senderAllowed ? "Sender not in allowed list" : "Keywords not matched",
+        sms: ignoredSms 
+      });
     }
-    return false;
-  });
-  
-  // Find a match (match amount exactly with float tolerance)
-  const match = candidateRequests.find(req => Math.abs(req.amountExact - amount) < 0.005);
 
-  if (match) {
-    // 1. Mark payment as completed
-    db.update('paymentRequests', match.id, { status: "completed" });
+    // Parse amount from SMS
+    const amount = parseSmsForAmount(body);
 
-    // 2. Activate user subscription (e.g. valid for 30 days)
-    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-    db.update('users', match.userId, { 
-      status: "active", 
-      expiresAt: Date.now() + thirtyDays 
-    });
+    if (amount === null) {
+      const unmatchedSms = await db.insert('receivedSms', {
+        sender: sender || "Unknown",
+        body,
+        parsedAmount: null,
+        matchedPaymentId: null,
+        status: "unmatched"
+      });
+      return res.json({ 
+        success: true, 
+        status: "unmatched", 
+        reason: "Could not parse amount from SMS content",
+        sms: unmatchedSms 
+      });
+    }
 
-    // 3. Log SMS as processed
-    const processedSms = db.insert('receivedSms', {
-      sender: sender || "Unknown",
-      body,
-      parsedAmount: amount,
-      matchedPaymentId: match.id,
-      status: "processed"
+    // Search for matching payment (either pending or recently expired within 30 minutes)
+    await db.cleanExpiredPayments();
+    const allRequests = await db.get('paymentRequests');
+    const candidateRequests = allRequests.filter(req => {
+      if (req.status === 'pending') return true;
+      if (req.status === 'expired') {
+        const timeSinceExpiry = Date.now() - req.expiresAt;
+        return timeSinceExpiry < (30 * 60 * 1000); // 30 minutes cooldown
+      }
+      return false;
     });
+    
+    // Find a match (match amount exactly with float tolerance)
+    const match = candidateRequests.find(req => Math.abs(req.amountExact - amount) < 0.005);
 
-    return res.json({
-      success: true,
-      status: "processed",
-      amount,
-      matchedUser: match.userName,
-      paymentId: match.id,
-      sms: processedSms
-    });
-  } else {
-    // Log SMS as unmatched (amount parsed but no active pending checkout matched)
-    const unmatchedSms = db.insert('receivedSms', {
-      sender: sender || "Unknown",
-      body,
-      parsedAmount: amount,
-      matchedPaymentId: null,
-      status: "unmatched"
-    });
+    if (match) {
+      // 1. Mark payment as completed
+      await db.update('paymentRequests', match.id, { status: "completed" });
 
-    return res.json({
-      success: true,
-      status: "unmatched",
-      amount,
-      reason: `Parsed amount Rs. ${amount.toFixed(2)} but found no active pending payment for this exact amount`,
-      sms: unmatchedSms
-    });
+      // 2. Activate user subscription (e.g. valid for 30 days)
+      const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+      await db.update('users', match.userId, { 
+        status: "active", 
+        expiresAt: Date.now() + thirtyDays 
+      });
+
+      // 3. Log SMS as processed
+      const processedSms = await db.insert('receivedSms', {
+        sender: sender || "Unknown",
+        body,
+        parsedAmount: amount,
+        matchedPaymentId: match.id,
+        status: "processed"
+      });
+
+      return res.json({
+        success: true,
+        status: "processed",
+        amount,
+        matchedUser: match.userName,
+        paymentId: match.id,
+        sms: processedSms
+      });
+    } else {
+      // Log SMS as unmatched (amount parsed but no active pending checkout matched)
+      const unmatchedSms = await db.insert('receivedSms', {
+        sender: sender || "Unknown",
+        body,
+        parsedAmount: amount,
+        matchedPaymentId: null,
+        status: "unmatched"
+      });
+
+      return res.json({
+        success: true,
+        status: "unmatched",
+        amount,
+        reason: `Parsed amount Rs. ${amount.toFixed(2)} but found no active pending payment for this exact amount`,
+        sms: unmatchedSms
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
