@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Complete Your Subscription Payment - PennyWise</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1.5rem;">
+  
+  <div class="card checkout-card" id="checkout-root">
+    <!-- Brand -->
+    <div class="checkout-brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.78l1.24-1.25c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/>
+        </svg>
+      </div>
+      <span class="brand-name">PennyWise Checkout</span>
+    </div>
+
+    <!-- Main Payment Processing Container -->
+    <div id="payment-gate">
+      <h2 style="font-size: 1.5rem; margin-bottom: 0.25rem;">Secure UPI Payment</h2>
+      <p class="text-secondary" style="font-size: 0.85rem;" id="checkout-for">Subscription for: Loading...</p>
+
+      <!-- Amount Box with Paise Highlight -->
+      <div class="amount-container">
+        <div class="amount-label">Pay Exactly This Amount</div>
+        <div class="amount-value" id="checkout-amount">
+          Rs. <span id="amount-rupees">100</span><span class="paisa-highlight" id="amount-paise">.00</span>
+        </div>
+      </div>
+
+      <!-- Timer countdown -->
+      <div class="timer-box" id="checkout-timer">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span id="timer-text">09:59 minutes remaining</span>
+      </div>
+
+      <!-- UPI QR Code -->
+      <div class="qr-container">
+        <!-- Generates dynamic QR from api.qrserver.com or locally -->
+        <img id="upi-qr" src="" alt="Scan to Pay" style="width: 100%; height: 100%; display: none; border-radius: 8px;">
+        <div id="qr-loading" class="loader-spinner" style="margin-top: 5rem;"></div>
+      </div>
+
+      <!-- Payment Detection Status -->
+      <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 1.5rem;">
+        <div class="loader-spinner" style="width: 14px; height: 14px; border-width: 2px; border-top-color: var(--secondary); margin: 0;"></div>
+        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;" id="status-text">
+          Awaiting Credit SMS confirmation...
+        </span>
+      </div>
+
+      <!-- User Instructions -->
+      <p class="checkout-instructions">
+        Scan the QR code with any UPI app (GPay, PhonePe, Paytm, BHIM, etc.). <br>
+        <strong>IMPORTANT:</strong> Do not modify the amount. The payment must be exactly <strong id="instruction-exact-amount">Rs. 100.00</strong> to enable automated matching.
+      </p>
+    </div>
+
+    <!-- Success Screen (Initially Hidden) -->
+    <div id="success-gate" style="display: none;" class="success-screen">
+      <div class="success-icon">
+        <svg viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+      <h2 style="font-size: 1.85rem; font-family: var(--font-display); color: white; margin-bottom: 0.5rem;">Payment Confirmed!</h2>
+      <p style="color: var(--success); font-weight: 600; font-size: 0.95rem; margin-bottom: 1.5rem;">Subscription Successfully Activated</p>
+      
+      <div class="amount-container" style="margin: 2rem 0; padding: 1.25rem;">
+        <p class="text-secondary" style="font-size: 0.8rem; margin-bottom: 0.5rem; text-transform: uppercase;">Receipt Details</p>
+        <p style="font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem;" id="receipt-user">User: Loading...</p>
+        <p style="font-size: 1.25rem; font-weight: 800; font-family: var(--font-display); color: var(--text-primary);" id="receipt-amount">Amount Paid: Rs. 100.00</p>
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;" id="receipt-id">Transaction ID: PAY-MOCK</p>
+      </div>
+
+      <p class="text-secondary" style="font-size: 0.85rem; line-height: 1.5; margin-bottom: 2rem;">
+        Your subscription has been extended by 30 days inside the property management database. You can safely close this browser window.
+      </p>
+
+      <button class="btn btn-primary" onclick="window.close();" style="width: 100%;">Close Portal</button>
+    </div>
+
+    <!-- Error Screen (Initially Hidden) -->
+    <div id="error-gate" style="display: none;" class="success-screen">
+      <div class="success-icon" style="background-color: rgba(239, 68, 68, 0.1); border-color: var(--danger); box-shadow: 0 0 30px rgba(239, 68, 68, 0.2);">
+        <svg viewBox="0 0 24 24" style="stroke: var(--danger);">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </div>
+      <h2 style="font-size: 1.85rem; font-family: var(--font-display); color: white; margin-bottom: 0.5rem;">Checkout Session Expired</h2>
+      <p style="color: var(--danger); font-weight: 600; font-size: 0.95rem; margin-bottom: 1.5rem;">This Penny-Wise payment reservation has timed out.</p>
+
+      <p class="text-secondary" style="font-size: 0.85rem; line-height: 1.6; margin-bottom: 2rem;">
+        Because fractional amounts are reserved for unique users to prevent conflicts, payment sessions have a strict expiration. Please go back to the PMS and request a new payment link.
+      </p>
+
+      <button class="btn btn-secondary" onclick="window.close();" style="width: 100%;">Go Back</button>
+    </div>
+  </div>
+
+  <script src="/js/checkout.js"></script>
+</body>
+</html>

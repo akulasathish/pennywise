@@ -1,0 +1,24 @@
+{
+  "name": "pennywise",
+  "version": "1.0.0",
+  "description": "PennyWise: A lightweight PMS payment reconciliation system using SMS and penny-wise fractional amount matching",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "qrcode": "^1.5.4",
+    "serverless-http": "^3.2.0"
+  },
+  "keywords": [
+    "penny-wise",
+    "sms-reconciliation",
+    "payment",
+    "lightweight",
+    "pms"
+  ],
+  "author": "Antigravity",
+  "license": "ISC"
+}
