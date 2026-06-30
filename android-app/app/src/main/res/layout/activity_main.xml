@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_width"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#121212">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- Title Header -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PennyWise Gateway"
+            android:textColor="#FFFFFF"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginBottom="5dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Android SMS Listener & Cloud Sync"
+            android:textColor="#A0A0A0"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:layout_marginBottom="25dp"/>
+
+        <!-- Supabase Configurations -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Supabase Cloud Credentials"
+            android:textColor="#6366F1"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+
+        <EditText
+            android:id="@+id/et_supabase_url"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Supabase Project URL (https://xyz.supabase.co)"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#555555"
+            android:inputType="textUri"
+            android:background="#1E1E1E"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp"
+            android:textSize="14sp"/>
+
+        <EditText
+            android:id="@+id/et_supabase_key"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Supabase Anon / API Key"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#555555"
+            android:inputType="text"
+            android:background="#1E1E1E"
+            android:padding="12dp"
+            android:layout_marginBottom="20dp"
+            android:textSize="14sp"/>
+
+        <!-- SMS Filter Configurations -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="SMS Filters (Comma separated)"
+            android:textColor="#6366F1"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+
+        <EditText
+            android:id="@+id/et_allowed_senders"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Bank Senders (e.g. SBI-Alert, HDFC, ICICI)"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#555555"
+            android:inputType="text"
+            android:background="#1E1E1E"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp"
+            android:textSize="14sp"/>
+
+        <EditText
+            android:id="@+id/et_keywords"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Credit Keywords (e.g. credited, received)"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#555555"
+            android:inputType="text"
+            android:background="#1E1E1E"
+            android:padding="12dp"
+            android:layout_marginBottom="20dp"
+            android:textSize="14sp"/>
+
+        <!-- Save Button -->
+        <Button
+            android:id="@+id/btn_save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Save configurations"
+            android:backgroundTint="#6366F1"
+            android:textColor="#FFFFFF"
+            android:padding="12dp"
+            android:textStyle="bold"
+            android:layout_marginBottom="25dp"/>
+
+        <!-- Info & Stats Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#1E1E1E"
+            android:padding="15dp"
+            android:layout_marginBottom="20dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Status & Synchronization Logs"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:textSize="15sp"
+                android:layout_marginBottom="10dp"/>
+
+            <TextView
+                android:id="@+id/tv_stats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Total Captured: 0\nPending Sync: 0"
+                android:textColor="#A0A0A0"
+                android:textSize="13sp"
+                android:lineSpacingExtra="4dp"
+                android:layout_marginBottom="10dp"/>
+
+            <Button
+                android:id="@+id/btn_trigger_sync"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sync Queue Now"
+                android:backgroundTint="#2E2E2E"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:padding="5dp"/>
+        </LinearLayout>
+
+        <!-- Log Title -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Recent Captured Messages"
+            android:textColor="#A0A0A0"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+
+        <!-- Terminal-like Console Log -->
+        <TextView
+            android:id="@+id/tv_console_logs"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:background="#0A0A0A"
+            android:padding="10dp"
+            android:text="No messages captured yet."
+            android:textColor="#10B981"
+            android:fontFamily="monospace"
+            android:textSize="11sp"
+            android:scrollbars="vertical"/>
+
+    </LinearLayout>
+</ScrollView>
